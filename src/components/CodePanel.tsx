@@ -70,7 +70,7 @@ function CodePanel() {
   }, []);
   
   return (
-    <div className="w-96 bg-white border-l border-gray-300 flex flex-col">
+    <div className="h-full bg-white border-l border-gray-300 flex flex-col">
       <div className="h-10 border-b border-gray-300 flex items-center px-4 gap-4">
         <div className="flex gap-2">
           <button

@@ -6,7 +6,7 @@ function LayersPanel() {
   const { stage, selectedLayerId, setSelectedLayerId, addLayer, deleteLayer, toggleLayerVisibility, toggleLayerLock } = useStore();
   
   return (
-    <div className="w-60 bg-white border-r border-gray-300 flex flex-col">
+    <div className="h-full bg-white border-r border-gray-300 flex flex-col">
       <div className="h-10 border-b border-gray-300 flex items-center px-4 font-semibold">
         レイヤー
       </div>
