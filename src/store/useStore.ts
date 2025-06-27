@@ -11,6 +11,7 @@ interface StoreActions {
   toggleShowGrid: () => void;
   toggleShowRuler: () => void;
   setStageSize: (width: number, height: number) => void;
+  setStage: (stage: Stage) => void;
   addLayer: (name?: string) => void;
   deleteLayer: (id: string) => void;
   toggleLayerVisibility: (id: string) => void;
@@ -58,6 +59,8 @@ export const useStore = create<AppState & StoreActions>((set, get) => ({
     set((state) => ({
       stage: { ...state.stage, width, height }
     })),
+
+  setStage: (stage) => set({ stage }),
 
   addLayer: (name) => {
     const newLayer: Layer = {
