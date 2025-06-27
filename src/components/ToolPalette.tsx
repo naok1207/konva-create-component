@@ -1,4 +1,4 @@
-import { FaMousePointer, FaSquare, FaCircle, FaMinus, FaFont, FaImage, FaDrawPolygon } from 'react-icons/fa';
+import { FaMousePointer, FaSquare, FaCircle, FaMinus, FaFont, FaImage, FaDrawPolygon, FaObjectGroup } from 'react-icons/fa';
 import { useStore } from '../store/useStore';
 import { ShapeType } from '../types';
 import clsx from 'clsx';
@@ -16,6 +16,7 @@ const tools: Tool[] = [
   { id: 'circle', icon: <FaCircle />, title: '円', shortcut: 'C' },
   { id: 'line', icon: <FaMinus />, title: '線', shortcut: 'L' },
   { id: 'text', icon: <FaFont />, title: 'テキスト', shortcut: 'T' },
+  { id: 'group', icon: <FaObjectGroup />, title: 'グループ', shortcut: 'G' },
   { id: 'image', icon: <FaImage />, title: '画像', shortcut: 'I' },
   { id: 'path', icon: <FaDrawPolygon />, title: 'パス', shortcut: 'P' },
 ];

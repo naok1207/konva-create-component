@@ -1,4 +1,4 @@
-import { Stage, Shape, Layer } from '../types';
+import { Stage, Shape, Layer, GroupShape } from '../types';
 
 export function generateReactCode(stage: Stage, typescript: boolean = false): string {
   const imports = generateImports(stage);
@@ -8,13 +8,35 @@ export function generateReactCode(stage: Stage, typescript: boolean = false): st
   return `${imports}\n\n${componentCode}`;
 }
 
+function collectShapeTypes(shapes: (Shape | GroupShape)[]): Set<string> {
+  const types = new Set<string>();
+  
+  shapes.forEach(shape => {
+    types.add(shape.type);
+    if (shape.type === 'group') {
+      const groupTypes = collectShapeTypes(shape.children);
+      groupTypes.forEach(type => types.add(type));
+    }
+  });
+  
+  return types;
+}
+
 function generateImports(stage: Stage): string {
-  const shapes = stage.layers.flatMap(layer => layer.shapes);
-  const shapeTypes = new Set(shapes.map(shape => shape.type));
+  const allShapeTypes = new Set<string>();
+  
+  stage.layers.forEach(layer => {
+    const types = collectShapeTypes(layer.shapes);
+    types.forEach(type => allShapeTypes.add(type));
+  });
   
   const konvaImports = ['Stage', 'Layer'];
   
-  shapeTypes.forEach(type => {
+  if (allShapeTypes.has('group')) {
+    konvaImports.push('Group');
+  }
+  
+  allShapeTypes.forEach(type => {
     switch (type) {
       case 'rect':
         konvaImports.push('Rect');
@@ -76,8 +98,19 @@ ${shapesCode}
       </Layer>`;
 }
 
-function generateShapeCode(shape: Shape): string {
-  const indent = '        ';
+function generateShapeCode(shape: Shape | GroupShape, indentLevel: number = 2): string {
+  const indent = '  '.repeat(indentLevel);
+  
+  if (shape.type === 'group') {
+    const props = generateGroupProps(shape);
+    const childrenCode = shape.children
+      .filter(child => child.visible !== false)
+      .map(child => generateShapeCode(child, indentLevel + 1))
+      .join('\n');
+    
+    return `${indent}<Group\n${props}\n${indent}>\n${childrenCode}\n${indent}</Group>`;
+  }
+  
   const props = generateShapeProps(shape);
   
   switch (shape.type) {
@@ -139,6 +172,23 @@ function generateShapeProps(shape: Shape): string {
       if (shape.width) props.push(`${indent}width={${shape.width}}`);
       break;
   }
+  
+  return props.join('\n');
+}
+
+function generateGroupProps(group: GroupShape): string {
+  const indent = '  '.repeat(3);
+  const props: string[] = [];
+  
+  // Common props
+  props.push(`${indent}x={${group.x}}`);
+  props.push(`${indent}y={${group.y}}`);
+  
+  if (group.opacity !== undefined && group.opacity !== 1) props.push(`${indent}opacity={${group.opacity}}`);
+  if (group.rotation) props.push(`${indent}rotation={${group.rotation}}`);
+  if (group.scaleX !== undefined && group.scaleX !== 1) props.push(`${indent}scaleX={${group.scaleX}}`);
+  if (group.scaleY !== undefined && group.scaleY !== 1) props.push(`${indent}scaleY={${group.scaleY}}`);
+  if (group.draggable) props.push(`${indent}draggable`);
   
   return props.join('\n');
 }

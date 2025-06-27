@@ -1,4 +1,4 @@
-export type ShapeType = 'rect' | 'circle' | 'ellipse' | 'line' | 'polygon' | 'star' | 'text' | 'image' | 'path' | 'arrow';
+export type ShapeType = 'rect' | 'circle' | 'ellipse' | 'line' | 'polygon' | 'star' | 'text' | 'image' | 'path' | 'arrow' | 'group';
 
 export interface Position {
   x: number;
@@ -60,14 +60,19 @@ export interface TextShape extends BaseShape {
   width?: number;
 }
 
-export type Shape = RectShape | CircleShape | EllipseShape | LineShape | TextShape;
+export interface GroupShape extends BaseShape {
+  type: 'group';
+  children: Shape[];
+}
+
+export type Shape = RectShape | CircleShape | EllipseShape | LineShape | TextShape | GroupShape;
 
 export interface Layer {
   id: string;
   name: string;
   visible: boolean;
   locked: boolean;
-  shapes: Shape[];
+  shapes: (Shape | GroupShape)[];
 }
 
 export interface Stage {

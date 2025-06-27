@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, Shape, Layer, ShapeType } from '../types';
+import { AppState, Shape, Layer, ShapeType, Stage, GroupShape } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 interface StoreActions {
@@ -134,26 +134,51 @@ export const useStore = create<AppState & StoreActions>((set, get) => ({
   },
 
   updateShape: (id, updates) => {
+    const updateShapeRecursive = (shapes: (Shape | GroupShape)[]): (Shape | GroupShape)[] => {
+      return shapes.map((shape) => {
+        if (shape.id === id) {
+          return { ...shape, ...updates };
+        }
+        if (shape.type === 'group') {
+          return {
+            ...shape,
+            children: updateShapeRecursive(shape.children)
+          };
+        }
+        return shape;
+      });
+    };
+
     set((state) => ({
       stage: {
         ...state.stage,
         layers: state.stage.layers.map((layer) => ({
           ...layer,
-          shapes: layer.shapes.map((shape) =>
-            shape.id === id ? { ...shape, ...updates } : shape
-          )
+          shapes: updateShapeRecursive(layer.shapes)
         }))
       }
     }));
   },
 
   deleteShape: (id) => {
+    const deleteShapeRecursive = (shapes: (Shape | GroupShape)[]): (Shape | GroupShape)[] => {
+      return shapes.filter(shape => shape.id !== id).map(shape => {
+        if (shape.type === 'group') {
+          return {
+            ...shape,
+            children: deleteShapeRecursive(shape.children)
+          };
+        }
+        return shape;
+      });
+    };
+
     set((state) => ({
       stage: {
         ...state.stage,
         layers: state.stage.layers.map((layer) => ({
           ...layer,
-          shapes: layer.shapes.filter((shape) => shape.id !== id)
+          shapes: deleteShapeRecursive(layer.shapes)
         }))
       },
       selectedShapeId: state.selectedShapeId === id ? null : state.selectedShapeId

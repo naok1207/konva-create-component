@@ -1,4 +1,4 @@
-import { Stage, Shape, Layer, RectShape, CircleShape, TextShape, EllipseShape, LineShape } from '../types';
+import { Stage, Shape, Layer, RectShape, CircleShape, TextShape, EllipseShape, LineShape, GroupShape } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ParseResult {
@@ -60,14 +60,40 @@ export function parseReactCode(code: string): ParseResult {
   }
 }
 
-function parseShapes(layerContent: string): Shape[] {
-  const shapes: Shape[] = [];
+function parseShapes(layerContent: string): (Shape | GroupShape)[] {
+  const shapes: (Shape | GroupShape)[] = [];
+  
+  // First, parse Groups
+  const groupRegex = /<Group([^>]*?)>([\s\S]*?)<\/Group>/g;
+  let match;
+  
+  while ((match = groupRegex.exec(layerContent)) !== null) {
+    const props = parseProps(match[1]);
+    const groupContent = match[2];
+    const children = parseShapes(groupContent);
+    
+    shapes.push({
+      id: uuidv4(),
+      type: 'group',
+      x: props.x || 0,
+      y: props.y || 0,
+      opacity: props.opacity,
+      rotation: props.rotation,
+      scaleX: props.scaleX,
+      scaleY: props.scaleY,
+      visible: true,
+      draggable: props.draggable || true,
+      children: children
+    } as GroupShape);
+  }
+  
+  // Remove groups from content to avoid double parsing
+  const contentWithoutGroups = layerContent.replace(/<Group[^>]*?>[\s\S]*?<\/Group>/g, '');
   
   // Parse Rect components
   const rectRegex = /<Rect([^>]*?)\/>/g;
-  let match;
   
-  while ((match = rectRegex.exec(layerContent)) !== null) {
+  while ((match = rectRegex.exec(contentWithoutGroups)) !== null) {
     const props = parseProps(match[1]);
     if (props.x !== undefined && props.y !== undefined && props.width !== undefined && props.height !== undefined) {
       shapes.push({
@@ -93,7 +119,7 @@ function parseShapes(layerContent: string): Shape[] {
   
   // Parse Circle components
   const circleRegex = /<Circle([^>]*?)\/>/g;
-  while ((match = circleRegex.exec(layerContent)) !== null) {
+  while ((match = circleRegex.exec(contentWithoutGroups)) !== null) {
     const props = parseProps(match[1]);
     if (props.x !== undefined && props.y !== undefined && props.radius !== undefined) {
       shapes.push({
@@ -117,7 +143,7 @@ function parseShapes(layerContent: string): Shape[] {
   
   // Parse Text components
   const textRegex = /<Text([^>]*?)\/>/g;
-  while ((match = textRegex.exec(layerContent)) !== null) {
+  while ((match = textRegex.exec(contentWithoutGroups)) !== null) {
     const props = parseProps(match[1]);
     if (props.x !== undefined && props.y !== undefined && props.text !== undefined) {
       shapes.push({
@@ -146,7 +172,7 @@ function parseShapes(layerContent: string): Shape[] {
   
   // Parse Ellipse components
   const ellipseRegex = /<Ellipse([^>]*?)\/>/g;
-  while ((match = ellipseRegex.exec(layerContent)) !== null) {
+  while ((match = ellipseRegex.exec(contentWithoutGroups)) !== null) {
     const props = parseProps(match[1]);
     if (props.x !== undefined && props.y !== undefined && props.radiusX !== undefined && props.radiusY !== undefined) {
       shapes.push({
@@ -171,7 +197,7 @@ function parseShapes(layerContent: string): Shape[] {
   
   // Parse Line components
   const lineRegex = /<Line([^>]*?)\/>/g;
-  while ((match = lineRegex.exec(layerContent)) !== null) {
+  while ((match = lineRegex.exec(contentWithoutGroups)) !== null) {
     const props = parseProps(match[1]);
     if (props.points !== undefined) {
       shapes.push({
@@ -227,6 +253,9 @@ function parseProps(propsString: string): any {
   // Parse boolean props
   if (propsString.includes('closed')) {
     props.closed = true;
+  }
+  if (propsString.includes('draggable')) {
+    props.draggable = true;
   }
   
   return props;

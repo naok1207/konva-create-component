@@ -1,12 +1,15 @@
 import { useRef, useState, useEffect } from 'react';
-import { Stage, Layer, Rect, Circle, Text, Line, Group } from 'react-konva';
+import { Stage, Layer, Rect, Circle, Text, Line, Group, Ellipse, Transformer } from 'react-konva';
 import Konva from 'konva';
 import { useStore } from '../store/useStore';
-import { Shape } from '../types';
+import { Shape, GroupShape } from '../types';
 import { KonvaEventObject } from 'konva/lib/Node';
+import { useGroupSelection } from '../hooks/useGroupSelection';
+import './Canvas.css';
 
 function Canvas() {
   const stageRef = useRef<Konva.Stage>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingShape, setDrawingShape] = useState<any>(null);
@@ -24,6 +27,8 @@ function Canvas() {
     updateShape,
     deleteShape,
   } = useStore();
+  
+  const { selectedShapeIds, toggleShapeSelection, clearSelection } = useGroupSelection();
 
   // Grid snapping helper
   const snapToGridValue = (value: number) => {
@@ -33,6 +38,13 @@ function Canvas() {
 
   // Handle canvas click for drawing
   const handleStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    // Clear multi-selection if clicking on empty space
+    const clickedOnEmpty = e.target === e.target.getStage();
+    if (clickedOnEmpty && selectedTool === 'select') {
+      clearSelection();
+      setSelectedShapeId(null);
+    }
+    
     if (selectedTool === 'select') return;
     
     const stage = e.target.getStage();
@@ -157,7 +169,40 @@ function Canvas() {
   };
 
   // Render shapes
-  const renderShape = (shape: Shape) => {
+  const renderShape = (shape: Shape | GroupShape): any => {
+    if (shape.type === 'group') {
+      return (
+        <Group
+          key={shape.id}
+          id={shape.id}
+          x={shape.x}
+          y={shape.y}
+          opacity={shape.opacity}
+          rotation={shape.rotation}
+          scaleX={shape.scaleX}
+          scaleY={shape.scaleY}
+          draggable={selectedTool === 'select' && shape.draggable}
+          onClick={(e: KonvaEventObject<MouseEvent>) => {
+            if (e.evt.ctrlKey || e.evt.metaKey) {
+              toggleShapeSelection(shape.id);
+            } else {
+              clearSelection();
+              setSelectedShapeId(shape.id);
+            }
+          }}
+          onDragEnd={(e: KonvaEventObject<DragEvent>) => {
+            const node = e.target;
+            updateShape(shape.id, {
+              x: snapToGridValue(node.x()),
+              y: snapToGridValue(node.y()),
+            });
+          }}
+        >
+          {shape.children.map(child => renderShape(child))}
+        </Group>
+      );
+    }
+    
     const commonProps = {
       key: shape.id,
       id: shape.id,
@@ -171,7 +216,14 @@ function Canvas() {
       scaleX: shape.scaleX,
       scaleY: shape.scaleY,
       draggable: selectedTool === 'select',
-      onClick: () => setSelectedShapeId(shape.id),
+      onClick: (e: KonvaEventObject<MouseEvent>) => {
+        if (e.evt.ctrlKey || e.evt.metaKey) {
+          toggleShapeSelection(shape.id);
+        } else {
+          clearSelection();
+          setSelectedShapeId(shape.id);
+        }
+      },
       onDragEnd: (e: KonvaEventObject<DragEvent>) => {
         const node = e.target;
         updateShape(shape.id, {
@@ -198,6 +250,10 @@ function Canvas() {
             width={shape.width}
           />
         );
+      case 'ellipse':
+        return <Ellipse {...commonProps} radiusX={shape.radiusX} radiusY={shape.radiusY} />;
+      case 'line':
+        return <Line {...commonProps} points={shape.points} closed={shape.closed} />;
       default:
         return null;
     }
@@ -206,14 +262,43 @@ function Canvas() {
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' && selectedShapeId) {
-        deleteShape(selectedShapeId);
+      if (e.key === 'Delete') {
+        if (selectedShapeId) {
+          deleteShape(selectedShapeId);
+        }
+        selectedShapeIds.forEach(id => deleteShape(id));
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedShapeId, deleteShape]);
+  }, [selectedShapeId, selectedShapeIds, deleteShape]);
+  
+  // Update transformer when selection changes
+  useEffect(() => {
+    if (!transformerRef.current || !stageRef.current) return;
+    
+    const transformer = transformerRef.current;
+    const stage = stageRef.current;
+    
+    if (selectedShapeId || selectedShapeIds.length > 0) {
+      const selectedNodes: Konva.Node[] = [];
+      
+      if (selectedShapeId) {
+        const node = stage.findOne(`#${selectedShapeId}`);
+        if (node) selectedNodes.push(node);
+      }
+      
+      selectedShapeIds.forEach(id => {
+        const node = stage.findOne(`#${id}`);
+        if (node) selectedNodes.push(node);
+      });
+      
+      transformer.nodes(selectedNodes);
+    } else {
+      transformer.nodes([]);
+    }
+  }, [selectedShapeId, selectedShapeIds]);
 
   return (
     <div className="flex-1 bg-gray-100 relative overflow-hidden">
@@ -259,6 +344,16 @@ function Canvas() {
               .map(layer => (
                 <Layer key={layer.id}>
                   {layer.shapes.map(shape => renderShape(shape))}
+                  <Transformer
+                    ref={transformerRef}
+                    boundBoxFunc={(oldBox, newBox) => {
+                      // Limit resize
+                      if (newBox.width < 5 || newBox.height < 5) {
+                        return oldBox;
+                      }
+                      return newBox;
+                    }}
+                  />
                 </Layer>
               ))}
             

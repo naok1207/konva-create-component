@@ -1,10 +1,15 @@
 import { useState } from 'react';
-import { FaUndo, FaRedo, FaDownload, FaEye } from 'react-icons/fa';
+import { FaUndo, FaRedo, FaDownload, FaEye, FaObjectGroup, FaObjectUngroup } from 'react-icons/fa';
 import { useStore } from '../store/useStore';
+import { useGroupSelection } from '../hooks/useGroupSelection';
 
 function Header() {
-  const { gridSize, setGridSize, snapToGrid, toggleSnapToGrid } = useStore();
+  const { gridSize, setGridSize, snapToGrid, toggleSnapToGrid, selectedShapeId, stage } = useStore();
   const [customGridSize, setCustomGridSize] = useState(gridSize.toString());
+  const { selectedShapeIds, createGroup, ungroupSelectedGroup } = useGroupSelection();
+  
+  const selectedShape = stage.layers.flatMap(layer => layer.shapes).find(shape => shape.id === selectedShapeId);
+  const isGroupSelected = selectedShape?.type === 'group';
 
   const handleGridSizeChange = (value: string) => {
     setCustomGridSize(value);
@@ -32,6 +37,25 @@ function Header() {
         </button>
         <button className="p-1 hover:bg-gray-800 rounded" title="やり直す">
           <FaRedo />
+        </button>
+      </div>
+      
+      <div className="flex items-center gap-2 border-l border-gray-700 pl-4">
+        <button 
+          className="p-1 hover:bg-gray-800 rounded disabled:opacity-50" 
+          title="グループ化 (Ctrl+G)"
+          onClick={createGroup}
+          disabled={selectedShapeIds.length < 2}
+        >
+          <FaObjectGroup />
+        </button>
+        <button 
+          className="p-1 hover:bg-gray-800 rounded disabled:opacity-50" 
+          title="グループ解除 (Ctrl+Shift+G)"
+          onClick={() => selectedShapeId && ungroupSelectedGroup(selectedShapeId)}
+          disabled={!isGroupSelected}
+        >
+          <FaObjectUngroup />
         </button>
       </div>
       
